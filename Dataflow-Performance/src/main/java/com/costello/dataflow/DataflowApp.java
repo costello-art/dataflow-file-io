@@ -6,6 +6,7 @@ import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.fs.EmptyMatchTreatment;
 import org.apache.beam.sdk.options.*;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.Watch;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -23,9 +24,13 @@ public class DataflowApp {
         pipeline.apply(
                 FileIO.match()
                         .withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW)
-                        .filepattern(options.getInputFilePattern()))
-                 //      .continuously(Duration.standardSeconds(10), Watch.Growth.never()))
-                .apply("xml to POJO", ParDo.of(new XmlToPojoDoFn()));
+                        .filepattern(options.getInputFilePattern())
+                        .continuously(Duration.standardSeconds(10), Watch.Growth.never()))
+                .apply(FileIO.readMatches())
+                .apply(Reshuffle.viaRandomKey())
+                .apply(ParDo.of(new FileToBytesDoFn()))
+                .apply(Reshuffle.viaRandomKey())
+                .apply("xml to POJO", ParDo.of(new XmlToPojoDoFnV2()));
 
         pipeline.run().waitUntilFinish();
 
